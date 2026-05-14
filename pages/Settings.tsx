@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { Save, Check, CreditCard, Facebook, Instagram, Linkedin, Twitter, Youtube, Copy, DollarSign, Activity, AlertCircle, Loader2, RefreshCw, Plus, Search, X, Filter, Sparkles, Lock, Shield, User, Camera, Bell, Trash2, Mail, Terminal, BarChart, Database, Briefcase, Globe, Pin, MapPin, Ghost, Hash, Video, AtSign, MessageCircle, Layers, Cpu, Brain, Key } from 'lucide-react';
 import { PLANS } from '../constants';
@@ -156,7 +157,11 @@ const Settings: React.FC = () => {
   } = useApp();
   const [description, setDescription] = useState(brandVoice.description);
   const [tone, setTone] = useState(brandVoice.tone ?? 50);
-  const [activeTab, setActiveTab] = useState<'profile' | 'my brand' | 'engagement' | 'llm api' | 'connect accounts' | 'subscription' | 'affiliate'>('profile');
+  const location = useLocation();
+  const locationTab = (location.state as any)?.tab as string | undefined;
+  const [activeTab, setActiveTab] = useState<'profile' | 'my brand' | 'engagement' | 'llm api' | 'connect accounts' | 'subscription' | 'affiliate'>(
+    (locationTab as any) ?? 'profile'
+  );
   
   // Profile State
   const [profileName, setProfileName] = useState(currentUser?.name || '');

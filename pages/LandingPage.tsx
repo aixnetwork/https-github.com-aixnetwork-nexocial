@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Zap, Menu, X, Check, ChevronDown, ArrowRight, Star, Flame, RefreshCw, Target, Calculator, ArrowUpRight, Shield, User, Sun, Moon, TrendingUp, Heart, Activity, Sparkles } from 'lucide-react';
+import { Zap, Menu, X, Check, ChevronDown, ArrowRight, Star, Flame, RefreshCw, Target, Calculator, ArrowUpRight, Shield, User, Sun, Moon, TrendingUp, Heart, Activity, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 
@@ -14,6 +14,8 @@ const LandingPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
@@ -314,7 +316,12 @@ const LandingPage: React.FC = () => {
                               )}
                               <input type="email" required className="w-full bg-slate-50 dark:bg-[#0B0F19] border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 outline-none" placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} />
                               <div>
-                                <input type="password" required className="w-full bg-slate-50 dark:bg-[#0B0F19] border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 outline-none" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
+                                <div className="relative">
+                                  <input type={showPassword ? 'text' : 'password'} required className="w-full bg-slate-50 dark:bg-[#0B0F19] border border-slate-200 dark:border-slate-700 rounded-xl p-3 pr-10 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 outline-none" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
+                                  <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                  </button>
+                                </div>
                                 {authMode === 'login' && (
                                   <div className="text-right mt-1">
                                     <button type="button" onClick={() => { setForgotMode(true); setForgotEmail(email); }} className="text-xs text-indigo-500 dark:text-indigo-400 hover:underline bg-transparent border-0 cursor-pointer">
@@ -324,7 +331,12 @@ const LandingPage: React.FC = () => {
                                 )}
                               </div>
                               {authMode === 'register' && (
-                                <input type="password" required className="w-full bg-slate-50 dark:bg-[#0B0F19] border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 outline-none" placeholder="Confirm Password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+                                <div className="relative">
+                                  <input type={showConfirmPassword ? 'text' : 'password'} required className="w-full bg-slate-50 dark:bg-[#0B0F19] border border-slate-200 dark:border-slate-700 rounded-xl p-3 pr-10 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 outline-none" placeholder="Confirm Password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+                                  <button type="button" onClick={() => setShowConfirmPassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                  </button>
+                                </div>
                               )}
                               {authError && (
                                 <p className="text-red-500 dark:text-red-400 text-sm text-center bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-500/30 rounded-xl px-3 py-2 whitespace-pre-line">{authError}</p>
@@ -345,18 +357,12 @@ const LandingPage: React.FC = () => {
                         {/* Quick Demo Section */}
                         <div className="mt-8 pt-6 border-t border-slate-100 dark:border-white/5">
                             <p className="text-center text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">Try the Live Demo</p>
-                            <div className="grid grid-cols-2 gap-3">
-                                <button 
+                            <div className="grid grid-cols-1 gap-3">
+                                <button
                                     onClick={() => handleDemoLogin('user')}
                                     className="flex items-center justify-center gap-2 py-2 px-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white hover:border-indigo-500/50 transition-all"
                                 >
                                     <User className="w-3 h-3" /> User Demo
-                                </button>
-                                <button 
-                                    onClick={() => handleDemoLogin('admin')}
-                                    className="flex items-center justify-center gap-2 py-2 px-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white hover:border-purple-500/50 transition-all"
-                                >
-                                    <Shield className="w-3 h-3" /> Super Admin
                                 </button>
                             </div>
                         </div>

@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  Rocket, 
-  Sparkles, 
-  Target, 
-  Globe, 
-  CheckCircle, 
-  ArrowRight, 
-  Bot, 
+import {
+  Rocket,
+  Sparkles,
+  Target,
+  Globe,
+  CheckCircle,
+  ArrowRight,
+  Bot,
   Zap,
   Layout,
   MessageSquare,
@@ -16,10 +16,14 @@ import {
   Twitter,
   Linkedin,
   Facebook,
-  Loader2
+  Loader2,
+  Key,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { Platform, ContentFormat } from '../types';
+import { runLlmDiagnostic } from '../services/usersService';
 
 const STORAGE_KEY = (userId: string) => `nexocial_onboarding_${userId}`;
 
@@ -31,6 +35,9 @@ interface OnboardingDraft {
   selectedPlatforms: Platform[];
   goal: string;
   firstPost: string;
+  llmProvider: string;
+  llmApiKey: string;
+  llmModel: string;
 }
 
 function loadDraft(userId: string): Partial<OnboardingDraft> {
@@ -64,15 +71,30 @@ const Onboarding: React.FC = () => {
   // Step 4: Goals
   const [goal, setGoal] = useState(draft.goal ?? 'Build brand awareness and engage with potential customers.');
 
-  // Step 5: First Post
+  // Step 5: LLM API
+  const [llmProvider, setLlmProvider] = useState(draft.llmProvider ?? 'Gemini');
+  const [llmApiKey, setLlmApiKey] = useState(draft.llmApiKey ?? '');
+  const [llmModel, setLlmModel] = useState(draft.llmModel ?? '');
+  const [llmTesting, setLlmTesting] = useState(false);
+  const [llmTestResult, setLlmTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  // Step 6: First Post
   const [firstPost, setFirstPost] = useState<string>(draft.firstPost ?? '');
 
   // Persist draft to localStorage whenever relevant state changes
   useEffect(() => {
     if (!currentUser?.id) return;
-    const draft: OnboardingDraft = { step, companyName, description, suggestedTone, selectedPlatforms, goal, firstPost };
+    const draft: OnboardingDraft = { step, companyName, description, suggestedTone, selectedPlatforms, goal, firstPost, llmProvider, llmApiKey, llmModel };
     localStorage.setItem(STORAGE_KEY(currentUser.id), JSON.stringify(draft));
-  }, [step, companyName, description, suggestedTone, selectedPlatforms, goal, firstPost, currentUser?.id]);
+  }, [step, companyName, description, suggestedTone, selectedPlatforms, goal, firstPost, llmProvider, llmApiKey, llmModel, currentUser?.id]);
+
+  // Auto-generate first post when arriving at step 6 with no post yet
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (step === 6 && !firstPost) {
+      handleGenerateFirstPost();
+    }
+  }, [step]); // intentionally omits handleGenerateFirstPost to avoid re-triggering on re-renders
 
   const handleAnalyzeVoice = () => {
     setIsAnalyzing(true);
@@ -96,13 +118,28 @@ const Onboarding: React.FC = () => {
       } else {
         setFirstPost(`Welcome to ${companyName}! We're excited to share our journey of ${description.substring(0, 50)}... with you all!`);
       }
-      setStep(5);
-    } catch (error) {
-      console.error("Failed to generate first post", error);
+    } catch {
       setFirstPost(`Hello world! We are ${companyName}. ${description.substring(0, 100)}... Stay tuned for more updates!`);
-      setStep(5);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTestLlm = async () => {
+    if (!llmApiKey.trim()) return;
+    setLlmTesting(true);
+    setLlmTestResult(null);
+    try {
+      // Save settings to DB first so diagnostic can read them
+      await updateUserProfile({
+        llmSettings: { provider: llmProvider, apiKey: llmApiKey, modelName: llmModel || defaultModel(llmProvider), isEnabled: true },
+      });
+      const result = await runLlmDiagnostic();
+      setLlmTestResult({ ok: true, message: `${result.provider} (${result.model}) — ${result.latency}ms` });
+    } catch (err: unknown) {
+      setLlmTestResult({ ok: false, message: err instanceof Error ? err.message : 'Connection failed' });
+    } finally {
+      setLlmTesting(false);
     }
   };
 
@@ -114,16 +151,19 @@ const Onboarding: React.FC = () => {
       brandTone: suggestedTone,
       preferredPlatforms: selectedPlatforms,
       primaryGoal: goal,
+      ...(llmApiKey ? { llmSettings: { provider: llmProvider, apiKey: llmApiKey, modelName: llmModel || defaultModel(llmProvider), isEnabled: true } } : {}),
     });
-    updateBrandVoice({
-      description,
-      targetScore: 85,
-      tone: suggestedTone,
-    });
+    updateBrandVoice({ description, targetScore: 85, tone: suggestedTone });
     await completeOnboarding();
-    // Clear saved draft after successful completion
     if (currentUser?.id) localStorage.removeItem(STORAGE_KEY(currentUser.id));
     setLoading(false);
+  };
+
+  const defaultModel = (provider: string) => {
+    if (provider === 'Gemini') return 'gemini-2.0-flash';
+    if (provider === 'OpenAI') return 'gpt-4o-mini';
+    if (provider === 'Anthropic') return 'claude-haiku-4-5-20251001';
+    return '';
   };
 
   const steps = [
@@ -131,7 +171,8 @@ const Onboarding: React.FC = () => {
     { id: 2, title: 'Voice', icon: Bot },
     { id: 3, title: 'Channels', icon: Layout },
     { id: 4, title: 'Goals', icon: Target },
-    { id: 5, title: 'Launch', icon: Rocket },
+    { id: 5, title: 'AI Setup', icon: Key },
+    { id: 6, title: 'Launch', icon: Rocket },
   ];
 
   return (
@@ -344,41 +385,147 @@ const Onboarding: React.FC = () => {
                 ))}
               </div>
 
-              <button 
-                onClick={handleGenerateFirstPost}
+              <button
+                onClick={() => setStep(5)}
                 className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 group"
               >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-                Generate My First Post
+                Continue <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
           )}
 
-          {/* Step 5: First Post */}
+          {/* Step 5: LLM API Setup */}
           {step === 5 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex items-center gap-3 mb-2">
+                <Key className="w-6 h-6 text-indigo-500" />
+                <h2 className="text-2xl font-bold">Connect Your AI Engine</h2>
+              </div>
+              <p className="text-slate-400 text-sm">Nexocial uses your own AI API key to generate content. This keeps your data private and gives you full control over usage.</p>
+
+              {/* Provider selector */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">AI Provider</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {['Gemini', 'OpenAI', 'Anthropic', 'Custom'].map(p => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => { setLlmProvider(p); setLlmModel(''); setLlmTestResult(null); }}
+                      className={clsx(
+                        "p-3 rounded-xl border text-sm font-bold transition-all",
+                        llmProvider === p
+                          ? "bg-indigo-600/10 border-indigo-500 text-white"
+                          : "bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-700"
+                      )}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">API Key</label>
+                <input
+                  type="password"
+                  value={llmApiKey}
+                  onChange={e => { setLlmApiKey(e.target.value); setLlmTestResult(null); }}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:border-indigo-500 outline-none transition-colors font-mono text-sm"
+                  placeholder={llmProvider === 'Gemini' ? 'AIza...' : llmProvider === 'OpenAI' ? 'sk-...' : llmProvider === 'Anthropic' ? 'sk-ant-...' : 'Your API key'}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+                  Model <span className="text-slate-600 normal-case font-normal">(optional — uses default if blank)</span>
+                </label>
+                <input
+                  type="text"
+                  value={llmModel}
+                  onChange={e => setLlmModel(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:border-indigo-500 outline-none transition-colors"
+                  placeholder={defaultModel(llmProvider)}
+                />
+              </div>
+
+              {/* Test result */}
+              {llmTestResult && (
+                <div className={clsx(
+                  "flex items-start gap-3 p-4 rounded-xl border text-sm",
+                  llmTestResult.ok
+                    ? "bg-emerald-900/20 border-emerald-500/30 text-emerald-300"
+                    : "bg-red-900/20 border-red-500/30 text-red-300"
+                )}>
+                  {llmTestResult.ok ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" /> : <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />}
+                  {llmTestResult.message}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleTestLlm}
+                disabled={!llmApiKey.trim() || llmTesting}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:bg-slate-800 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                {llmTesting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+                {llmTestResult?.ok ? 'Connected — Continue' : 'Test Connection'}
+              </button>
+
+              {llmTestResult?.ok && (
+                <button
+                  type="button"
+                  onClick={() => setStep(6)}
+                  className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 group"
+                >
+                  Continue <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </button>
+              )}
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setStep(6)}
+                  className="text-xs text-slate-600 hover:text-slate-400 bg-transparent border-0 cursor-pointer transition-colors"
+                >
+                  Skip for now — I'll configure this in Settings
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 6: First Post */}
+          {step === 6 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="flex items-center gap-3 mb-2">
                 <Rocket className="w-6 h-6 text-indigo-500" />
                 <h2 className="text-2xl font-bold">Ready for Liftoff!</h2>
               </div>
               <p className="text-slate-400 text-sm">Here's your first AI-generated post. You can edit this later.</p>
-              
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 relative overflow-hidden group">
+
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 relative overflow-hidden min-h-[120px]">
                 <div className="absolute top-0 right-0 p-2">
                   <span className="bg-indigo-600 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-widest">Preview</span>
                 </div>
-                <div className="flex items-center gap-2 mb-4">
-                   <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold">
-                     {companyName.charAt(0)}
-                   </div>
-                   <div>
-                     <p className="text-xs font-bold">{companyName}</p>
-                     <p className="text-[10px] text-slate-500">Just now</p>
-                   </div>
-                </div>
-                <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap italic">
-                  "{firstPost}"
-                </p>
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center py-6 gap-3">
+                    <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+                    <p className="text-xs text-slate-500">Generating your first post…</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold">
+                        {companyName.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold">{companyName}</p>
+                        <p className="text-[10px] text-slate-500">Just now</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap italic">"{firstPost}"</p>
+                  </>
+                )}
               </div>
 
               <div className="bg-indigo-900/20 border border-indigo-500/30 p-4 rounded-xl flex items-start gap-3">
@@ -390,11 +537,11 @@ const Onboarding: React.FC = () => {
 
               <button
                 onClick={handleFinish}
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-60 text-white font-bold py-4 rounded-xl transition-all shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-2"
+                disabled={loading || !firstPost}
+                className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition-all shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-2"
               >
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
-                Enter Dashboard
+                {loading ? 'Generating post…' : 'Enter Dashboard'}
               </button>
             </div>
           )}

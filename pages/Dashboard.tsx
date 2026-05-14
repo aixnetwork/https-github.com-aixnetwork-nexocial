@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowRight, Clock, Zap, PenTool, Sparkles, Calendar, CheckCircle, AlertCircle, Eye, MessageSquare, TrendingUp, ArrowUpRight, ArrowDownLeft, Send, User, Activity, Heart, Share2, Loader2, BarChart3 } from 'lucide-react';
+import { ArrowRight, Clock, Zap, PenTool, Sparkles, Calendar, CheckCircle, AlertCircle, Eye, MessageSquare, TrendingUp, ArrowUpRight, ArrowDownLeft, Send, User, Activity, Heart, Share2, Loader2, BarChart3, Key } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import clsx from 'clsx';
@@ -257,8 +257,22 @@ const Dashboard: React.FC = () => {
     { value: 10 }, { value: 15 }, { value: 25 }, { value: 20 }, { value: 35 }, { value: 45 }, { value: 60 }
   ];
 
+  const llmConfigured = !!(currentUser?.llmSettings as any)?.apiKey;
+
   return (
     <div className="pb-10 max-w-6xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+
+      {/* LLM API banner */}
+      {!llmConfigured && (
+        <Link to="/settings" state={{ tab: 'llm api' }} className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-500/30 rounded-2xl px-5 py-3.5 hover:border-amber-400 dark:hover:border-amber-400/50 transition-colors group">
+          <Key className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          <p className="text-sm text-amber-800 dark:text-amber-300 flex-1">
+            <strong>LLM API not configured</strong> — AI content generation is limited. Configure your API key to unlock full features.
+          </p>
+          <span className="text-xs font-bold text-amber-600 dark:text-amber-400 group-hover:underline whitespace-nowrap">Configure →</span>
+        </Link>
+      )}
+
       {/* Header with Date */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
           <div className="space-y-1">

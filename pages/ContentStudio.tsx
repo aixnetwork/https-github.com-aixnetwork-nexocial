@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { SocialPost, PostStatus, ContentFormat, Platform } from '../types';
-import { Sparkles, AlertTriangle, Copy, Loader2, Calendar, X, Instagram, Facebook, Linkedin, Twitter, Youtube, RefreshCw, Image as ImageIcon, Save, Wand2, Pin, MapPin, Ghost, Hash, Video, AtSign, FileText, Smartphone, Film, MonitorPlay, GalleryHorizontal, ListTree, Layers, Lightbulb, Heart, MessageCircle, Share2, MoreHorizontal, ArrowRight, Laptop, Battery, Wifi, Signal, CheckCircle2, TrendingUp, Users, Bookmark, Zap, Clock, Edit3 } from 'lucide-react';
+import { Sparkles, AlertTriangle, Copy, Loader2, Calendar, X, Instagram, Facebook, Linkedin, Twitter, Youtube, RefreshCw, Image as ImageIcon, Save, Wand2, Pin, MapPin, Ghost, Hash, Video, AtSign, FileText, Smartphone, Film, MonitorPlay, GalleryHorizontal, ListTree, Layers, Lightbulb, Heart, MessageCircle, Share2, MoreHorizontal, ArrowRight, Laptop, Battery, Wifi, Signal, CheckCircle2, TrendingUp, Users, Bookmark, Zap, Clock, Edit3, Key } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import clsx from 'clsx';
 
@@ -682,6 +682,12 @@ const ContentStudio: React.FC = () => {
         {/* Left Config Panel */}
         <div className="lg:col-span-4 h-full overflow-y-auto pr-2 pb-10 scrollbar-hide">
           <div className="space-y-6">
+             {!(currentUser?.llmSettings as any)?.apiKey && (
+               <Link to="/settings" state={{ tab: 'llm api' }} className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-500/30 rounded-xl px-4 py-2.5 hover:border-amber-400 transition-colors">
+                 <Key className="w-3.5 h-3.5 shrink-0" />
+                 LLM API not configured — <span className="font-bold underline">Configure in Settings →</span>
+               </Link>
+             )}
              {/* 1. Content Input */}
                     <div className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-3xl border-2 border-slate-200 dark:border-slate-800 rounded-[2.5rem] p-10 shadow-2xl relative group focus-within:border-indigo-500/50 transition-all duration-500 glass overflow-hidden">
                         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-3xl pointer-events-none"></div>
@@ -871,7 +877,8 @@ const ContentStudio: React.FC = () => {
 
               <button
                 onClick={handleGenerate}
-                disabled={isGenerating || !coreMessage}
+                disabled={isGenerating || !coreMessage || !(currentUser?.llmSettings as any)?.apiKey}
+                title={!(currentUser?.llmSettings as any)?.apiKey ? 'Configure your LLM API in Settings first' : undefined}
                 className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 text-white px-8 py-8 rounded-[2.5rem] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-5 transition-all shadow-2xl shadow-indigo-900/40 text-2xl hover:scale-[1.02] active:scale-95 sticky bottom-0 z-10 border-b-4 border-indigo-800 group/gen font-heading overflow-hidden"
                >
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
